@@ -6,6 +6,20 @@
 - 实测速度无损耗，速度取决于内网上传带宽和公网机器带宽
 
 ###
+网络模型说明
+####
+S->[A->B]->[C->D]
+参考"网络模型图.jpg"
+
+- S:外网机器
+- A:公网机器与外网机器通信的端口
+- B:公网机器与内网机器通信的端口
+- C:内网机器与公网机器通信的端口
+- D:内网机器被转发到外网的设备
+
+![img](https://github.com/freevolunteer/neddle/blob/master/%E7%BD%91%E7%BB%9C%E6%A8%A1%E5%9E%8B%E5%9B%BE.jpg?raw=true)
+
+###
 使用说明
 公网host部署host.py,参考:
 > nohup /usr/local/bin/python3 -u /root/host.py>> /root/log/host.log &
@@ -79,19 +93,5 @@ local参考配置
 等效于client处在nas网络位置mysql -h127.0.0.1 -P3306 -uroot -p
 
 
-###
-网络模型说明
-####
-S->[A->B]->[C->D]
-参考"网络模型图.jpg"
-
-
-![image](https://github.com/freevolunteer/neddle/blob/master/%E7%BD%91%E7%BB%9C%E6%A8%A1%E5%9E%8B%E5%9B%BE.jpg）
-
-- S:外网机器
-- A:公网机器与外网机器通信的端口
-- B:公网机器与内网机器通信的端口
-- C:内网机器与公网机器通信的端口
-- D:内网机器被转发到外网的设备
 
 

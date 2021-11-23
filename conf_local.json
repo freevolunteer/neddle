@@ -1,0 +1,10 @@
+{
+  "local": {
+    "id": "nas",
+    "host_addr": "127.0.0.1",
+    "ctl_port": 4890,
+    "B_port": 4891,
+    "recv_size": 1024,
+    "queue_size": 1024
+  }
+}

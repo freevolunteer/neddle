@@ -25,6 +25,7 @@ class Local:
         self.recv_size = self.conf['recv_size']
         self.queue_size = self.conf['queue_size']
         self.queue_timeout = self.conf['queue_timeout']
+        self.recv_timeout = self.conf['recv_timeout']
         self.BD_map = {}
         self.DB_map = {}
         self.D_cons = {}
@@ -104,6 +105,7 @@ class Local:
         else:
             util.log('get con to D:{}:{}'.format(D_host, D_port))
         try:
+            D_s.settimeout(self.recv_timeout)
             D_info = "{}_{}".format(D_host, str(D_port))
             self.D_cons[D_info] = D_s
         except Exception as e:
@@ -118,6 +120,7 @@ class Local:
         else:
             util.log('get con to B:{}:{}'.format(self.AB_host, self.B_port))
         try:
+            B_s.settimeout(self.recv_timeout)
             B_info = B_s.getpeername()
             B_host = B_info[0]
             B_port = B_info[1]
@@ -146,14 +149,25 @@ class Local:
                 r = s.recv(self.recv_size)
                 if not r:
                     raise Exception("B connect broken:{}".format(B_info))
-                # util.log("rev B:{},{}".format(B_info, r.decode('utf-8')))
                 # 加入到队列
                 q.put(r)
             except Exception as e:
-                util.log("B recv err:{}".format(e))
-                del q
-                D_s.close()
-                break
+                if isinstance(e,socket.timeout):
+                    try:
+                        # 判活
+                        D_s.getsockname()
+                        s.getsockname()
+                    except:
+                        D_s.close()
+                        s.close()
+                        break
+                    continue
+                else:
+                    util.log("B rev err:{}".format(e))
+                    break
+        del q
+        s.close()
+        D_s.close()
         util.log("B recv thread exit")
 
     def B_send(self, D_s, q):
@@ -184,15 +198,26 @@ class Local:
                 r = s.recv(self.recv_size)
                 if not r:
                     raise Exception("D connect broken:{}".format(D_info))
-                # util.log("rev D:{},{}".format(D_info, r.decode('utf-8')))
                 # 加入到队列
                 q.put(r)
             except Exception as e:
-                util.log("D recv err:{}".format(e))
-                del q
-                B_s.close()
-                break
-        util.log("D recv thread exit")
+                if isinstance(e, socket.timeout):
+                    try:
+                        # 判活
+                        B_s.getsockname()
+                        s.getsockname()
+                    except:
+                        B_s.close()
+                        s.close()
+                        break
+                    continue
+                else:
+                    util.log("D rev err:{}".format(e))
+                    break
+            del q
+            s.close()
+            B_s.close()
+            util.log("D recv thread exit")
 
     def D_send(self, B_s, q):
         while True:
@@ -200,7 +225,6 @@ class Local:
                 r = q.get(timeout=self.queue_timeout)
                 # 转发给D
                 B_s.send(r)
-                # util.log("D send:{}".format(r.decode('utf-8')))
             except Exception as e:
                 if isinstance(e,queue.Empty):
                     try:

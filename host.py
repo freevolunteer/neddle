@@ -34,6 +34,7 @@ class Host:
         self.recv_size = self.conf['recv_size']
         self.queue_size = self.conf['queue_size']
         self.queue_timeout = self.conf['queue_timeout']
+        self.recv_timeout = self.conf['recv_timeout']
 
         self.ctl_s = None
         self.CS_map = {}
@@ -84,6 +85,7 @@ class Host:
         while True:
             try:
                 a, _ = s.accept()
+                a.settimeout(self.recv_timeout)
                 C_host = a.getpeername()[0]
                 self.ctl_cons[C_host] = a
                 util.log("get ctl con:{}".format(str(a.getpeername()[1])))
@@ -166,15 +168,25 @@ class Host:
                 else:
                     util.log("bad ctl back msg:{}".format(r))
             except Exception as e:
-                util.log("ctl rev err:{}".format(traceback.format_exc()))
-                del self.ctl_cons[C_host]
-                return
+                if isinstance(e,socket.timeout):
+                    try:
+                        # 判活
+                        s.getsockname()
+                    except:
+                        s.close()
+                        break
+                    continue
+                else:
+                    util.log("ctl rev err:{}".format(e))
+                    break
+        del self.ctl_cons[C_host]
 
     def B_accept(self, s):
         """B连接"""
         while True:
             try:
                 a, _ = s.accept()
+                a.settimeout(self.recv_timeout)
                 C_info = a.getpeername()
                 C_host = C_info[0]
                 C_port = C_info[1]
@@ -197,34 +209,34 @@ class Host:
                 r = s.recv(self.recv_size)
                 if not r:
                     util.log("B connect broken:{}".format(C_info))
-                    S_info = self.CS_map[C_info]
-                    s = self.B_cons[C_info]
-                    s.close()
-                    s = self.S_cons[S_info]
-                    s.close()
-                    del self.SC_map[S_info]
-                    del self.CS_map[C_info]
-                    del self.B_cons[C_info]
-                    del self.B_q[C_info]
-                    del self.S_cons[S_info]
-                    return
+                    break
                 # 加入队列
                 q.put(r)
-                # util.log("B rev:{}".format(r.decode('utf-8')))
             except Exception as e:
-                traceback.print_exc()
-                util.log("B rev err:{}".format(e))
-                S_info = self.CS_map[C_info]
-                s = self.B_cons[C_info]
-                s.close()
-                s = self.S_cons[S_info]
-                s.close()
-                del self.SC_map[S_info]
-                del self.CS_map[C_info]
-                del self.B_cons[C_info]
-                del self.B_q[C_info]
-                del self.S_cons[S_info]
-                return
+                if isinstance(e, socket.timeout):
+                    try:
+                        # 判活
+                        s.getsockname()
+                    except:
+                        s.close()
+                        break
+                    continue
+                else:
+                    util.log("B rev err:{}".format(e))
+                    break
+        try:
+            s.close()
+            S_info = self.CS_map[C_info]
+            s = self.S_cons[S_info]
+            s.close()
+            del self.SC_map[S_info]
+            del self.CS_map[C_info]
+            del self.B_cons[C_info]
+            del self.B_q[C_info]
+            del self.S_cons[S_info]
+        except Exception as e:
+            util.log("disconnect B err:{}".format(e))
+        util.log("B recv thread exit")
 
     def B_send(self, C_info):
         """B接收处理"""
@@ -241,7 +253,6 @@ class Host:
                 s = self.B_cons[C_info]
                 # 转发给S
                 s.send(r)
-                # util.log("B->C send:{}".format(r.decode('utf-8')))
             except Exception as e:
                 if isinstance(e,queue.Empty):
                     try:
@@ -260,6 +271,7 @@ class Host:
         """A连接处理"""
         while True:
             a, _ = s.accept()
+            a.settimeout(self.recv_timeout)
             S_info = a.getpeername()
             S_host = S_info[0]
             S_port = S_info[1]
@@ -294,31 +306,32 @@ class Host:
                 # S->A,A received
                 r = s.recv(self.recv_size)
                 if not r:
-                    util.log("A connect broken:{}".format(S_info))
-                    C_info = self.SC_map[S_info]
-                    s = self.S_cons[S_info]
-                    s.close()
-                    s = self.B_cons[C_info]
-                    s.close()
-                    del self.SC_map[S_info]
-                    del self.CS_map[C_info]
-                    del self.S_cons[S_info]
-                    del self.S_q[S_info]
-                    return
+                    raise Exception("A connect broken:{}".format(S_info))
                 q.put(r)
-                # util.log("A recv:{},{}".format(q.qsize(),r.decode('utf-8')))
             except Exception as e:
-                util.log("A recv err:{}".format(traceback.format_exc()))
-                C_info = self.SC_map[S_info]
-                s = self.S_cons[S_info]
-                s.close()
-                s = self.B_cons[C_info]
-                s.close()
-                del self.SC_map[S_info]
-                del self.CS_map[C_info]
-                del self.S_cons[S_info]
-                del self.S_q[S_info]
-                return
+                if isinstance(e,socket.timeout):
+                    try:
+                        # 判活
+                        s.getsockname()
+                    except:
+                        s.close()
+                        break
+                    continue
+                else:
+                    util.log("A recv err:{}".format(e))
+                    break
+        try:
+            # 断开B连接
+            C_info = self.SC_map[S_info]
+            s = self.B_cons[C_info]
+            s.close()
+            del self.SC_map[S_info]
+            del self.CS_map[C_info]
+            del self.S_cons[S_info]
+            del self.S_q[S_info]
+        except Exception as e:
+            util.log("disconnect A err:{}".format(e))
+        util.log("A recv thread exit")
 
     def A_send(self, S_info):
         """B接收处理"""
@@ -335,7 +348,6 @@ class Host:
                 s = self.S_cons[S_info]
                 # 转发给S
                 s.send(r)
-                # util.log("A->S send:{}".format(r.decode('utf-8')))
             except Exception as e:
                 if isinstance(e,queue.Empty):
                     try:

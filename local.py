@@ -144,10 +144,7 @@ class Local:
                 # 接收到B
                 r = s.recv(self.recv_size)
                 if not r:
-                    util.log("B connect broken:{}".format(B_info))
-                    del q
-                    D_s.close()
-                    return
+                    raise Exception("B connect broken:{}".format(B_info))
                 # util.log("rev B:{},{}".format(B_info, r.decode('utf-8')))
                 # 加入到队列
                 q.put(r)
@@ -165,6 +162,8 @@ class Local:
                 D_s.send(r)
             except Exception as e:
                 util.log("B send err:{}".format(e))
+                D_s.close()
+                return
 
     def D_recv(self, s, D_info, q, B_s):
         while True:
@@ -172,10 +171,7 @@ class Local:
                 # 接收到D
                 r = s.recv(self.recv_size)
                 if not r:
-                    util.log("D connect broken:{}".format(D_info))
-                    del q
-                    B_s.close()
-                    return
+                    raise Exception("D connect broken:{}".format(D_info))
                 # util.log("rev D:{},{}".format(D_info, r.decode('utf-8')))
                 # 加入到队列
                 q.put(r)
@@ -194,6 +190,8 @@ class Local:
                 # util.log("D send:{}".format(r.decode('utf-8')))
             except Exception as e:
                 util.log("D send err:{}".format(e))
+                B_s.close()
+                return
 
 
 if __name__ == '__main__':

@@ -21,6 +21,7 @@ S->[A->B]->[C->D]
 
 ###
 使用说明
+
 公网host部署host.py,参考:
 > nohup /usr/local/bin/python3 -u /root/host.py>> /root/log/host.log &
 
@@ -29,6 +30,7 @@ S->[A->B]->[C->D]
 
 ###
 网络安全提醒
+
 暴露端口有风险,不必要时，可停止host.py运行
 
 ###
@@ -71,6 +73,7 @@ local参考配置
 
 ###
 举例说明
+
 以上述配置为例：
 内网机器zbox部署local.py
 另一内网机器nas部署local.py

@@ -9,6 +9,7 @@
       "4894": ["nas", "127.0.0.1", 22]
     },
     "recv_size": 1024,
-    "queue_size": 1024
+    "queue_size": 1024,
+    "queue_timeout": 3
   }
 }

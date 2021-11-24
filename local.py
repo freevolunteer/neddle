@@ -24,6 +24,7 @@ class Local:
         self.B_port = self.conf['B_port']
         self.recv_size = self.conf['recv_size']
         self.queue_size = self.conf['queue_size']
+        self.queue_timeout = self.conf['queue_timeout']
         self.BD_map = {}
         self.DB_map = {}
         self.D_cons = {}
@@ -152,18 +153,29 @@ class Local:
                 util.log("B recv err:{}".format(e))
                 del q
                 D_s.close()
-                return
+                break
+        util.log("B recv thread exit")
 
     def B_send(self, D_s, q):
         while True:
             try:
-                r = q.get()
+                r = q.get(timeout=self.queue_timeout)
                 # 转发给D
                 D_s.send(r)
             except Exception as e:
-                util.log("B send err:{}".format(e))
-                D_s.close()
-                return
+                if isinstance(e,queue.Empty):
+                    try:
+                        # 判活
+                        D_s.getsockname()
+                    except:
+                        D_s.close()
+                        break
+                    continue
+                else:
+                    util.log("B send err:{}".format(e))
+                    D_s.close()
+                    break
+        util.log("B send thread exit")
 
     def D_recv(self, s, D_info, q, B_s):
         while True:
@@ -179,19 +191,30 @@ class Local:
                 util.log("D recv err:{}".format(e))
                 del q
                 B_s.close()
-                return
+                break
+        util.log("D recv thread exit")
 
     def D_send(self, B_s, q):
         while True:
             try:
-                r = q.get()
+                r = q.get(timeout=self.queue_timeout)
                 # 转发给D
                 B_s.send(r)
                 # util.log("D send:{}".format(r.decode('utf-8')))
             except Exception as e:
-                util.log("D send err:{}".format(e))
-                B_s.close()
-                return
+                if isinstance(e,queue.Empty):
+                    try:
+                        # 判活
+                        B_s.getsockname()
+                    except:
+                        B_s.close()
+                        break
+                    continue
+                else:
+                    util.log("D send err:{}".format(e))
+                    B_s.close()
+                    break
+        util.log("D send thread exit")
 
 
 if __name__ == '__main__':

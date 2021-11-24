@@ -5,6 +5,7 @@
     "ctl_port": 4890,
     "B_port": 4891,
     "recv_size": 1024,
-    "queue_size": 1024
+    "queue_size": 1024,
+    "queue_timeout": 3
   }
 }

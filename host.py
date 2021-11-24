@@ -33,6 +33,7 @@ class Host:
 
         self.recv_size = self.conf['recv_size']
         self.queue_size = self.conf['queue_size']
+        self.queue_timeout = self.conf['queue_timeout']
 
         self.ctl_s = None
         self.CS_map = {}
@@ -236,14 +237,24 @@ class Host:
                     continue
                 q = self.S_q[S_info]
                 # B接收到C
-                r = q.get()
+                r = q.get(timeout=self.queue_timeout)
                 s = self.B_cons[C_info]
                 # 转发给S
                 s.send(r)
                 # util.log("B->C send:{}".format(r.decode('utf-8')))
             except Exception as e:
-                traceback.print_exc()
-                util.log("B send err:{}".format(e))
+                if isinstance(e,queue.Empty):
+                    try:
+                        s = self.B_cons[C_info]
+                        # 判活
+                        s.getsockname()
+                    except:
+                        break
+                    continue
+                else:
+                    util.log("B send err:{}".format(e))
+                    break
+        util.log("B send thread exit")
 
     def A_accept(self, s):
         """A连接处理"""
@@ -320,15 +331,24 @@ class Host:
                     continue
                 q = self.B_q[C_info]
                 # B接收到C
-                r = q.get()
+                r = q.get(timeout=self.queue_timeout)
                 s = self.S_cons[S_info]
                 # 转发给S
                 s.send(r)
                 # util.log("A->S send:{}".format(r.decode('utf-8')))
             except Exception as e:
-                traceback.print_exc()
-                util.log("B send err:{}".format(e))
-
+                if isinstance(e,queue.Empty):
+                    try:
+                        s = self.S_cons[S_info]
+                        # 判活
+                        s.getsockname()
+                    except:
+                        break
+                    continue
+                else:
+                    util.log("A send err:{}".format(e))
+                    break
+        util.log("A send thread exit")
 
 if __name__ == '__main__':
     foo = Host()

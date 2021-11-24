@@ -93,6 +93,7 @@ class Host:
 
     def init_srv(self):
         """按配置初始化A端"""
+        util.log("port_map:{}".format(json.dumps(self.port_map)))
         for A_port in self.port_map:
             try:
                 s = self.bind(port=A_port, retry=3)

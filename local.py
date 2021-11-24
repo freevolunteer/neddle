@@ -32,33 +32,29 @@ class Local:
         self.g_host_local = {}
 
     def execute(self):
-        self.controller_init()
+        self.controller_run()
 
-    def controller_init(self):
-        s = self.connect(self.AB_host, self.ctl_port)
-        id_info = {"id": self.id}
-        id_info = json.dumps(id_info)
-        if not s:
-            return
-        s.send(bytes(str(id_info).encode('utf-8')))
+    def controller_run(self):
+        s = None
         while True:
             try:
-                cmd = s.recv(self.recv_size)
-                if not cmd:
-                    util.log("ctl connection lost")
+                if not s:
                     s = self.connect(self.AB_host, self.ctl_port)
                     id_info = {"id": self.id}
                     id_info = json.dumps(id_info)
-                    if not s:
-                        return
                     s.send(bytes(str(id_info).encode('utf-8')))
-                    continue
+                cmd = s.recv(self.recv_size)
+                if not cmd:
+                    util.log("ctl connection lost")
+                    raise Exception('broken connection')
                 cmd = cmd.decode('utf-8')
                 util.simple_thread(target=self.execute_cmd, args=(cmd, s))
             except Exception as e:
                 util.log(traceback.format_exc())
-                s.close()
-                break
+                if e == 'broken connection':
+                    s = None
+
+
 
     def connect(self, host, port, retry=0, retry_inteval=1):
         n = 0
@@ -99,6 +95,20 @@ class Local:
             util.log(traceback.format_exc())
 
     def open(self, D_host, D_port):
+        # 连接D
+        D_s = self.connect(D_host, D_port, retry=5)
+        if not D_s:
+            util.log('con to D fail:{}:{}'.format(D_host, D_port))
+            return
+        else:
+            util.log('get con to D:{}:{}'.format(D_host, D_port))
+        try:
+            D_info = "{}_{}".format(D_host, str(D_port))
+            self.D_cons[D_info] = D_s
+        except Exception as e:
+            util.log("get B info err:{}".format(e))
+            return
+
         # 连接B
         B_s = self.connect(self.AB_host, self.B_port, retry=5)
         if not B_s:
@@ -114,21 +124,9 @@ class Local:
             self.B_cons[B_info] = B_s
         except Exception as e:
             util.log("get B info err:{}".format(e))
+            D_s.close()
             return
 
-        # 连接D
-        D_s = self.connect(D_host, D_port, retry=5)
-        if not D_s:
-            util.log('con to D fail:{}:{}'.format(D_host, D_port))
-            return
-        else:
-            util.log('get con to D:{}:{}'.format(D_host, D_port))
-        try:
-            D_info = "{}_{}".format(D_host, str(D_port))
-            self.D_cons[D_info] = D_s
-        except Exception as e:
-            util.log("get B info err:{}".format(e))
-            return
         self.BD_map[B_info] = D_info
         self.DB_map[D_info] = B_info
         B_q = queue.Queue(self.queue_size)

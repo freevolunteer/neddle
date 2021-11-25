@@ -52,8 +52,8 @@ class Local:
                 cmd = cmd.decode('utf-8')
                 util.simple_thread(target=self.execute_cmd, args=(cmd, s))
             except Exception as e:
-                util.log(traceback.format_exc())
-                if e == 'broken connection':
+                util.log(e)
+                if e.args[0] == 'broken connection':
                     s = None
 
 
@@ -157,9 +157,8 @@ class Local:
                         # 判活
                         D_s.getsockname()
                         s.getsockname()
-                    except:
-                        D_s.close()
-                        s.close()
+                    except Exception as e:
+                        util.log(e)
                         break
                     continue
                 else:
@@ -181,14 +180,14 @@ class Local:
                     try:
                         # 判活
                         D_s.getsockname()
-                    except:
-                        D_s.close()
+                    except Exception as e:
+                        util.log(e)
                         break
                     continue
                 else:
                     util.log("B send err:{}".format(e))
-                    D_s.close()
                     break
+        D_s.close()
         util.log("B send thread exit")
 
     def D_recv(self, s, D_info, q, B_s):
@@ -197,6 +196,7 @@ class Local:
                 # 接收到D
                 r = s.recv(self.recv_size)
                 if not r:
+                    print(type(r),r)
                     raise Exception("D connect broken:{}".format(D_info))
                 # 加入到队列
                 q.put(r)
@@ -206,18 +206,17 @@ class Local:
                         # 判活
                         B_s.getsockname()
                         s.getsockname()
-                    except:
-                        B_s.close()
-                        s.close()
+                    except Exception as e:
+                        util.log(e)
                         break
                     continue
                 else:
                     util.log("D rev err:{}".format(e))
                     break
-            del q
-            s.close()
-            B_s.close()
-            util.log("D recv thread exit")
+        del q
+        s.close()
+        B_s.close()
+        util.log("D recv thread exit")
 
     def D_send(self, B_s, q):
         while True:
@@ -230,14 +229,14 @@ class Local:
                     try:
                         # 判活
                         B_s.getsockname()
-                    except:
-                        B_s.close()
+                    except Exception as e:
+                        util.log(e)
                         break
                     continue
                 else:
                     util.log("D send err:{}".format(e))
-                    B_s.close()
                     break
+        B_s.close()
         util.log("D send thread exit")
 
 
